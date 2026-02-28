@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EGD Smart Meter - Credentials",
+        "description": "Enter your OAuth2 credentials from portal.distribuce24.cz",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret"
+        }
+      },
+      "ean": {
+        "title": "Enter EAN",
+        "description": "Enter the EAN (Energy Identification Number) of your metering point.",
+        "data": {
+          "ean": "EAN"
+        }
+      },
+      "date": {
+        "title": "Start Date",
+        "description": "Select the start date for historical data",
+        "data": {
+          "ean": "EAN",
+          "start_date": "Start Date"
+        }
+      }
+    },
+    "error": {
+      "auth": "Invalid credentials. Please check your Client ID and Client Secret.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This meter is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EGD Smart Meter Options",
+        "description": "Update start date",
+        "data": {
+          "start_date": "Start Date"
+        }
+      }
+    }
+  }
+}
