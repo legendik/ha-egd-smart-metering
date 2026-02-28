@@ -1,7 +1,9 @@
 {
   "domain": "egd_smart_meter",
   "name": "EGD Smart Meter",
-  "codeowners": ["@legendik"],
+  "codeowners": [
+    "@legendik"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/legendik/ha-egd-smart-metering",
   "homeassistant": ">=2024.0.0",
@@ -10,5 +12,5 @@
   "requirements": [
     "aiohttp>=3.9.0"
   ],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
