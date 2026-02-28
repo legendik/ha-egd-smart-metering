@@ -28,6 +28,7 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._client_id: str = ""
         self._client_secret: str = ""
+        self._ean: str = ""
 
     async def async_step_user(
         self,
@@ -69,7 +70,8 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle EAN input."""
         if user_input is not None:
-            return await self.async_step_date(user_input)
+            self._ean = user_input[CONF_EAN]
+            return await self.async_step_date()
 
         return self.async_show_form(
             step_id="ean",
@@ -90,11 +92,11 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle start date."""
         if user_input is not None:
             return self.async_create_entry(
-                title=f"EGD {user_input[CONF_EAN]}",
+                title=f"EGD {self._ean}",
                 data={
                     CONF_CLIENT_ID: self._client_id,
                     CONF_CLIENT_SECRET: self._client_secret,
-                    CONF_EAN: user_input[CONF_EAN],
+                    CONF_EAN: self._ean,
                     CONF_START_DATE: user_input[CONF_START_DATE],
                 },
             )
@@ -105,7 +107,6 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="date",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_EAN): str,
                     vol.Required(CONF_START_DATE, default=default_date): vol.Coerce(
                         date.fromisoformat
                     ),
