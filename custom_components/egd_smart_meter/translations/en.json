@@ -27,6 +27,7 @@
     },
     "error": {
       "auth": "Invalid credentials. Please check your Client ID and Client Secret.",
+      "invalid_date": "Invalid date format. Please use YYYY-MM-DD format.",
       "unknown": "An unexpected error occurred."
     },
     "abort": {

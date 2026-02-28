@@ -8,6 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 
 from .api import EGDAuthError, EGDClient
 from .const import (
@@ -57,8 +58,8 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_CLIENT_ID): str,
-                    vol.Required(CONF_CLIENT_SECRET): str,
+                    vol.Required(CONF_CLIENT_ID): cv.string,
+                    vol.Required(CONF_CLIENT_SECRET): cv.string,
                 }
             ),
             errors=errors,
@@ -77,7 +78,7 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="ean",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_EAN): str,
+                    vol.Required(CONF_EAN): cv.string,
                 }
             ),
             description_placeholders={
@@ -91,13 +92,30 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle start date."""
         if user_input is not None:
+            date_str = user_input.get(CONF_START_DATE, "")
+            try:
+                start_date = date.fromisoformat(date_str)
+            except ValueError:
+                return self.async_show_form(
+                    step_id="date",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(
+                                CONF_START_DATE,
+                                default=(date.today().replace(day=1)).isoformat(),
+                            ): cv.string,
+                        }
+                    ),
+                    errors={"base": "invalid_date"},
+                )
+
             return self.async_create_entry(
                 title=f"EGD {self._ean}",
                 data={
                     CONF_CLIENT_ID: self._client_id,
                     CONF_CLIENT_SECRET: self._client_secret,
                     CONF_EAN: self._ean,
-                    CONF_START_DATE: user_input[CONF_START_DATE],
+                    CONF_START_DATE: start_date,
                 },
             )
 
@@ -107,9 +125,7 @@ class EGDConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="date",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_START_DATE, default=default_date): vol.Coerce(
-                        date.fromisoformat
-                    ),
+                    vol.Required(CONF_START_DATE, default=default_date): cv.string,
                 }
             ),
         )
@@ -133,16 +149,39 @@ class EGDOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Handle options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            date_str = user_input.get(CONF_START_DATE, "")
+            try:
+                start_date = date.fromisoformat(date_str)
+            except ValueError:
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required(
+                                CONF_START_DATE,
+                                default=self._config_entry.data.get(CONF_START_DATE, "")
+                                if isinstance(self._config_entry.data.get(CONF_START_DATE), date)
+                                else str(self._config_entry.data.get(CONF_START_DATE, "")),
+                            ): cv.string,
+                        }
+                    ),
+                    errors={"base": "invalid_date"},
+                )
+
+            return self.async_create_entry(
+                title="",
+                data={CONF_START_DATE: start_date},
+            )
+
+        current_date = self._config_entry.data.get(CONF_START_DATE, "")
+        if isinstance(current_date, date):
+            current_date = current_date.isoformat()
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_START_DATE,
-                        default=self._config_entry.data.get(CONF_START_DATE),
-                    ): vol.Coerce(date.fromisoformat),
+                    vol.Required(CONF_START_DATE, default=current_date): cv.string,
                 }
             ),
         )
