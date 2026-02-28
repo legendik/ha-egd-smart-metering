@@ -127,12 +127,17 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 async def async_setup_entry(hass: HomeAssistant, entry: Any) -> bool:
     """Set up EGD Smart Meter from a config entry."""
+    # Ensure start_date is a date object (it may be stored as string in JSON)
+    start_date = entry.data["start_date"]
+    if isinstance(start_date, str):
+        start_date = date.fromisoformat(start_date)
+
     coordinator = EGDCoordinator(
         hass,
         entry.data[CONF_CLIENT_ID],
         entry.data[CONF_CLIENT_SECRET],
         entry.data[CONF_EAN],
-        entry.data["start_date"],
+        start_date,
     )
 
     await coordinator.fetch_initial_data()
