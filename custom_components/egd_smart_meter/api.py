@@ -174,14 +174,27 @@ class EGDClient:
         current_start = start_date
         batch_count = 0
 
-        while current_start <= end_date:
-            # Calculate end of current month or end_date
+        # Ensure end_date is not in the future and not today/yesterday
+        # API requires data to be at least 1 day old
+        max_allowed_date = date.today() - timedelta(days=2)
+        effective_end_date = min(end_date, max_allowed_date)
+
+        if effective_end_date < start_date:
+            LOGGER.warning(
+                "Requested end_date %s is too recent. Using %s instead.",
+                end_date.isoformat(),
+                effective_end_date.isoformat(),
+            )
+            return all_results
+
+        while current_start <= effective_end_date:
+            # Calculate end of current month or effective_end_date
             if current_start.month == 12:
                 next_month = current_start.replace(year=current_start.year + 1, month=1, day=1)
             else:
                 next_month = current_start.replace(month=current_start.month + 1, day=1)
 
-            current_end = min(next_month - timedelta(days=1), end_date)
+            current_end = min(next_month - timedelta(days=1), effective_end_date)
 
             LOGGER.info(
                 "Fetching batch %d: %s to %s",
