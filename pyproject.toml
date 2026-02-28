@@ -1,6 +1,6 @@
 [project]
 name = "ha-egd-smart-metering"
-version = "0.2.2"
+version = "0.2.3"
 description = "EGD Smart Meter integration for Home Assistant"
 requires-python = ">=3.11"
 dependencies = [

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.2.2...egd_smart_meter-v0.2.3) (2026-02-28)
+
+
+### Bug Fixes
+
+* ensure end date is not in the future and not today ([58d3de5](https://github.com/legendik/ha-egd-smart-metering/commit/58d3de5b10abe29b6b15ecebfee5518b6af59de1))
+* initialize data ([f0c4f2a](https://github.com/legendik/ha-egd-smart-metering/commit/f0c4f2a411399fe876ef2d078f1121f10432676e))
+
 ## [0.2.2](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.2.1...egd_smart_meter-v0.2.2) (2026-02-28)
 
 
