@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio pytest-cov aiohttp
+          pip install -r requirements-test.txt
 
       - name: Run tests
         run: pytest tests/ --cov=custom_components/egd_smart_meter --cov-report=xml
