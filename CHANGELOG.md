@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.2.0...egd_smart_meter-v0.2.1) (2026-02-28)
+
+
+### Bug Fixes
+
+* better config flow ([d6a0e5a](https://github.com/legendik/ha-egd-smart-metering/commit/d6a0e5a053c82540eda1a8a47230286f5f29d3a3))
+
 ## [0.2.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.1.0...egd_smart_meter-v0.2.0) (2026-02-28)
 
 
