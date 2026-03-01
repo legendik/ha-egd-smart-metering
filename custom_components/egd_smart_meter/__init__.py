@@ -1,6 +1,6 @@
 """EGD Smart Meter integration."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
