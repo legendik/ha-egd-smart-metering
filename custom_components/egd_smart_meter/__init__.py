@@ -1,6 +1,6 @@
 """EGD Smart Meter integration."""
 
-from datetime import date, timedelta, timezone
+from datetime import date, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +11,6 @@ from .api import EGDApiError, EGDClient
 from .const import (
     ATTR_CONSUMPTION,
     ATTR_PRODUCTION,
-    # ATTR_STATISTICS_IMPORTED,  # TODO: Re-enable when statistics import is fixed
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_EAN,
@@ -30,11 +29,9 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         client_id: str,
         client_secret: str,
         ean: str,
-        start_date: date,
     ) -> None:
         self.api = EGDClient(client_id, client_secret)
         self.ean = ean
-        self.start_date = start_date
         self._total_consumption = 0.0
         self._total_production = 0.0
         self._last_date: date | None = None
@@ -87,18 +84,11 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # API requires data to be at least 1 day old
         safe_date = date.today() - timedelta(days=2)
 
-        if self.start_date > safe_date:
-            LOGGER.warning(
-                "Start date %s is too recent. Using %s instead.",
-                self.start_date.isoformat(),
-                safe_date.isoformat(),
-            )
-            self.start_date = safe_date
-
         try:
-            data = await self.api.get_consumption_data_batch(
+            # Fetch only the last day for the sensor (historical data for statistics disabled)
+            data = await self.api.get_consumption_data(
                 ean=self.ean,
-                start_date=self.start_date,
+                start_date=safe_date,
                 end_date=safe_date,
             )
 
@@ -140,77 +130,8 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
 
-            # Import historical statistics - temporarily disabled due to UNIQUE constraint issues
-            # TODO: Fix import logic or make it optional via service call
-            # if not entry.data.get(ATTR_STATISTICS_IMPORTED, False):
-            #     await self._import_historical_statistics(data)
-            #     # Mark as imported
-            #     hass = self.hass
-            #     new_data = {**entry.data, ATTR_STATISTICS_IMPORTED: True}
-            #     hass.config_entries.async_update_entry(entry, data=new_data)
-
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
-
-    async def _import_historical_statistics(self, data: list) -> None:
-        """Import historical consumption data as statistics for Energy Dashboard.
-
-        This allows viewing 15-minute consumption in the Energy Dashboard.
-        """
-        if not data:
-            return
-
-        # Filter valid data (IU012 status and non-null values)
-        valid_data = [item for item in data if item.value is not None and item.status == "IU012"]
-
-        if not valid_data:
-            LOGGER.warning("No valid data to import as statistics")
-            return
-
-        # Prepare statistics data - keep 15-minute intervals as-is
-        statistics = []
-        running_sum = 0.0
-
-        # Sort by datetime
-        for item in sorted(valid_data, key=lambda x: x.timestamp):
-            running_sum += item.value
-
-            # Ensure timezone is set
-            timestamp = item.timestamp
-            if timestamp.tzinfo is None:
-                timestamp = timestamp.replace(tzinfo=timezone.utc)  # noqa: UP017
-
-            statistics.append(
-                {
-                    "start": timestamp,
-                    "sum": running_sum,
-                    "state": running_sum,
-                }
-            )
-
-        # Metadata for the statistics
-        metadata = {
-            "has_mean": False,
-            "has_sum": True,
-            "mean_type": "none",
-            "name": f"EGD {self.ean} Consumption",
-            "source": "egd_smart_meter",
-            "statistic_id": f"egd_smart_meter:{self.ean}_consumption",
-            "unit_of_measurement": "kWh",
-            "unit_class": "energy",
-        }
-
-        # Import statistics
-        try:
-            from homeassistant.components.recorder.statistics import async_add_external_statistics
-
-            async_add_external_statistics(self.hass, metadata, statistics)
-            LOGGER.info(
-                "Imported %d quarter-hour records of historical statistics for Energy Dashboard",
-                len(statistics),
-            )
-        except Exception as err:
-            LOGGER.error("Failed to import historical statistics: %s", err)
 
     async def close(self) -> None:
         await self.api.close()
@@ -218,17 +139,11 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 async def async_setup_entry(hass: HomeAssistant, entry: Any) -> bool:
     """Set up EGD Smart Meter from a config entry."""
-    # Ensure start_date is a date object (it may be stored as string in JSON)
-    start_date = entry.data["start_date"]
-    if isinstance(start_date, str):
-        start_date = date.fromisoformat(start_date)
-
     coordinator = EGDCoordinator(
         hass,
         entry.data[CONF_CLIENT_ID],
         entry.data[CONF_CLIENT_SECRET],
         entry.data[CONF_EAN],
-        start_date,
     )
 
     await coordinator.fetch_initial_data(entry)
