@@ -1,6 +1,6 @@
 """EGD Smart Meter integration."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -50,8 +50,14 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
     async def _async_update_data(self) -> dict[str, Any]:
-        # API requires data to be at least 1 day old, use day before yesterday
-        safe_date = date.today() - timedelta(days=2)
+        # Reset to 0 for new day (today's consumption is not yet available)
+        today = date.today()
+        if self._last_date is not None and self._last_date < today:
+            self._total_consumption = 0.0
+            LOGGER.debug("Reset consumption for new day: %s", today.isoformat())
+
+        # API requires data to be at least 1 day old, fetch yesterday's data
+        safe_date = today - timedelta(days=1)
 
         if self._last_date is None or safe_date > self._last_date:
             try:
@@ -65,11 +71,13 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     item.value for item in data if item.value is not None and item.status == "IU012"
                 )
 
-                self._total_consumption = daily_total  # Show daily consumption, not cumulative
+                # Store yesterday's data but don't update current state
+                # Current state shows today's consumption (which is 0 until tomorrow)
                 self._last_date = safe_date
                 LOGGER.info(
-                    "Updated daily consumption: %.2f kWh",
+                    "Stored yesterday's consumption (%.2f kWh) for %s",
                     daily_total,
+                    safe_date.isoformat(),
                 )
 
             except EGDApiError as err:
@@ -81,8 +89,8 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
     async def fetch_initial_data(self, entry: ConfigEntry) -> None:
-        # API requires data to be at least 1 day old
-        safe_date = date.today() - timedelta(days=2)
+        # API requires data to be at least 1 day old, use yesterday
+        safe_date = date.today() - timedelta(days=1)
 
         try:
             # Fetch only the last day for the sensor (historical data for statistics disabled)
@@ -104,34 +112,102 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 LOGGER.info("Status distribution: %s", status_counts)
 
             valid_count = 0
-            total_consumption = 0.0
+            yesterday_total = 0.0
             for item in data:
                 if item.value is not None and item.status == "IU012":
-                    total_consumption += item.value
+                    yesterday_total += item.value
                     valid_count += 1
 
-            self._total_consumption = total_consumption
-
+            # Keep _total_consumption at 0 (today's consumption is not yet available)
+            # yesterday_total is just for logging
             if data:
                 self._last_date = safe_date
 
             LOGGER.info(
-                "Fetched %d records, %d valid (IU012), total consumption: %.2f kWh",
+                "Fetched %d records (%d valid), yesterday's consumption: %.2f kWh. "
+                "Sensor shows 0 for today (data available tomorrow).",
                 len(data),
                 valid_count,
-                self._total_consumption,
+                yesterday_total,
             )
 
-            # Update data so sensors can read the new values
+            # Update data - sensor shows 0 for today
             self.data = {
-                ATTR_CONSUMPTION: self._total_consumption,
+                ATTR_CONSUMPTION: self._total_consumption,  # 0.0
                 ATTR_PRODUCTION: self._total_production,
             }
 
-            LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
+            LOGGER.info(
+                "Sensor ready: showing 0 kWh for today (data for yesterday: %.2f kWh)",
+                yesterday_total,
+            )
+
+            # Import yesterday's data as hourly statistics for Energy Dashboard
+            await self._import_hourly_statistics(data, safe_date)
 
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
+
+    async def _import_hourly_statistics(self, data: list, date_obj: date) -> None:
+        """Import yesterday's data as hourly statistics for Energy Dashboard."""
+        if not data:
+            return
+
+        # Filter valid data and group by hour
+        hourly_data: dict[int, float] = {}
+        for item in data:
+            if item.value is not None and item.status == "IU012":
+                hour = item.timestamp.hour
+                hourly_data[hour] = hourly_data.get(hour, 0.0) + item.value
+
+        if not hourly_data:
+            LOGGER.warning("No valid hourly data to import")
+            return
+
+        # Prepare statistics with cumulative sum
+        statistics = []
+        running_sum = 0.0
+
+        for hour in sorted(hourly_data.keys()):
+            running_sum += hourly_data[hour]
+            # Create timestamp for start of hour
+            hour_dt = datetime.combine(date_obj, datetime.min.time().replace(hour=hour))
+            hour_dt = hour_dt.replace(tzinfo=timezone.utc)  # noqa: UP017
+
+            statistics.append(
+                {
+                    "start": hour_dt,
+                    "sum": running_sum,
+                    "state": running_sum,
+                }
+            )
+
+        # Metadata
+        metadata = {
+            "has_mean": False,
+            "has_sum": True,
+            "name": f"EGD {self.ean} Consumption",
+            "source": "egd_smart_meter",
+            "statistic_id": f"egd_smart_meter:{self.ean}_consumption",
+            "unit_of_measurement": "kWh",
+            "unit_class": "energy",
+        }
+
+        # Import statistics (ignore if already exists)
+        try:
+            from homeassistant.components.recorder.statistics import async_add_external_statistics
+
+            async_add_external_statistics(self.hass, metadata, statistics)
+            LOGGER.info(
+                "Imported %d hours of statistics for %s into Energy Dashboard",
+                len(statistics),
+                date_obj.isoformat(),
+            )
+        except Exception as err:
+            if "UNIQUE constraint" in str(err):
+                LOGGER.debug("Statistics for %s already exist", date_obj.isoformat())
+            else:
+                LOGGER.error("Failed to import statistics: %s", err)
 
     async def close(self) -> None:
         await self.api.close()
