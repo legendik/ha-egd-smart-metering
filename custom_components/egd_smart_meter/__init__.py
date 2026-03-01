@@ -3,7 +3,6 @@
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -198,6 +197,8 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Import statistics
         try:
+            from homeassistant.components.recorder.statistics import async_add_external_statistics
+
             async_add_external_statistics(self.hass, metadata, statistics)
             LOGGER.info(
                 "Imported %d days of historical statistics for Energy Dashboard",
