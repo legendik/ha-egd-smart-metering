@@ -132,6 +132,14 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._total_consumption,
             )
 
+            # Update data so sensors can read the new values
+            self.data = {
+                ATTR_CONSUMPTION: self._total_consumption,
+                ATTR_PRODUCTION: self._total_production,
+            }
+
+            LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
+
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
 

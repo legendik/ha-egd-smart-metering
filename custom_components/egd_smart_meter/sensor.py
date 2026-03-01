@@ -1,6 +1,5 @@
 """Sensor platform for EGD Smart Meter integration."""
 
-from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
@@ -56,11 +55,11 @@ class EGDSensor(SensorEntity):
         self._attr_name = f"EGD {ean} {SENSOR_TYPES[sensor_type]}"
         self._attr_entity_id = f"sensor.egd_{ean.replace('-', '_')}_{sensor_type}"
 
-    @cached_property
+    @property
     def native_value(self) -> StateType:
         return self.coordinator.data.get(self.sensor_type, 0.0)
 
-    @cached_property
+    @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         return {
             "ean": self.coordinator.ean,
