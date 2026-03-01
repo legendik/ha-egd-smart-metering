@@ -88,8 +88,9 @@ class EGDClient:
         method: str,
         url: str,
         params: dict[str, Any] | None = None,
+        retry_on_401: bool = True,
     ) -> Any:
-        """Make authenticated API request."""
+        """Make authenticated API request with auto-retry on token expiry."""
         token = await self._get_access_token()
         session = await self._get_session()
 
@@ -101,6 +102,11 @@ class EGDClient:
         async with session.request(method, url, headers=headers, params=params) as response:
             if response.status == 401:
                 self._access_token = None
+                self._token_expires = None
+                if retry_on_401:
+                    # Retry once with fresh token
+                    LOGGER.debug("Token expired, retrying with fresh token")
+                    return await self._request(method, url, params, retry_on_401=False)
                 raise EGDAuthError("Access token expired or invalid")
             if response.status != 200:
                 text = await response.text()
@@ -113,8 +119,13 @@ class EGDClient:
         ean: str,
         start_date: date,
         end_date: date,
+        page_start: int = 0,
     ) -> list[MeasurementData]:
-        """Get quarter-hour consumption data."""
+        """Get quarter-hour consumption data.
+
+        API returns values in kW for 15-minute intervals.
+        Convert to kWh by dividing by 4 (since 15 min = 0.25 hour).
+        """
         url = f"{BASE_URL_DATA}/spotreby"
 
         params = {
@@ -122,21 +133,31 @@ class EGDClient:
             "profile": PROFILE_CONSUMPTION,
             "from": f"{start_date.isoformat()}T00:00:00.000Z",
             "to": f"{end_date.isoformat()}T23:59:59.999Z",
-            "PageStart": 0,
+            "PageStart": page_start,
             "PageSize": 3000,
         }
 
         data = await self._request("GET", url, params=params)
         results = []
 
+        # API returns a list with one object containing the data
         if not isinstance(data, list):
             LOGGER.warning("Unexpected data format from API: %s", type(data))
             return results
 
+        total_records_in_response = 0
         for item in data:
             if not isinstance(item, dict):
                 continue
-            for record in item.get("data", []):
+
+            # Get total count if available (for pagination)
+            total_records = item.get("total", 0)
+            if total_records:
+                total_records_in_response = total_records
+
+            # Extract actual data points from nested "data" field
+            data_points = item.get("data", [])
+            for record in data_points:
                 if not isinstance(record, dict):
                     continue
                 ts_str = record.get("timestamp")
@@ -149,13 +170,33 @@ class EGDClient:
                     LOGGER.warning("Invalid timestamp format: %s, skipping", ts_str)
                     continue
 
+                # Convert kW (15-min power) to kWh (energy)
+                # 15 minutes = 0.25 hours, so kW * 0.25 = kWh, or kW / 4
+                raw_value = record.get("value")
+                kwh_value = raw_value / 4.0 if raw_value is not None else None
+
                 results.append(
                     MeasurementData(
                         timestamp=timestamp,
-                        value=record.get("value"),
+                        value=kwh_value,
                         status=record.get("status", "IU012"),
                     )
                 )
+
+        # Check if there are more pages to fetch
+        if total_records_in_response > 0 and page_start + len(results) < total_records_in_response:
+            LOGGER.debug(
+                "Pagination needed: fetched %d of %d records, fetching next page",
+                page_start + len(results),
+                total_records_in_response,
+            )
+            next_page_results = await self.get_consumption_data(
+                ean=ean,
+                start_date=start_date,
+                end_date=end_date,
+                page_start=page_start + len(results),
+            )
+            results.extend(next_page_results)
 
         return results
 
