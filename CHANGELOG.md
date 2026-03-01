@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.4.1...egd_smart_meter-v0.5.0) (2026-03-01)
+
+
+### Features
+
+* try to import historical data only on installation ([bdd2ef5](https://github.com/legendik/ha-egd-smart-metering/commit/bdd2ef5a5c1689d8e200a667aeef073ea4deb6ce))
+
 ## [0.4.1](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.4.0...egd_smart_meter-v0.4.1) (2026-03-01)
 
 
