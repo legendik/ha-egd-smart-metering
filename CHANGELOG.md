@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.5.0...egd_smart_meter-v0.6.0) (2026-03-01)
+
+
+### Features
+
+* daily metrics ([a35b0db](https://github.com/legendik/ha-egd-smart-metering/commit/a35b0db3c2b4d22af296b822384623d055213f35))
+
 ## [0.5.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.4.1...egd_smart_meter-v0.5.0) (2026-03-01)
 
 
