@@ -149,19 +149,20 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _import_historical_statistics(self, data: list) -> None:
         """Import historical consumption data as statistics for Energy Dashboard.
 
-        This allows viewing daily/hourly consumption in the Energy Dashboard.
+        This allows viewing hourly consumption in the Energy Dashboard.
         """
         if not data:
             return
 
-        # Group data by day
-        daily_data: dict[date, float] = {}
+        # Group data by hour
+        hourly_data: dict[datetime, float] = {}
         for item in data:
             if item.value is not None and item.status == "IU012":
-                day = item.timestamp.date()
-                daily_data[day] = daily_data.get(day, 0.0) + item.value
+                # Round timestamp to start of hour
+                hour_start = item.timestamp.replace(minute=0, second=0, microsecond=0)
+                hourly_data[hour_start] = hourly_data.get(hour_start, 0.0) + item.value
 
-        if not daily_data:
+        if not hourly_data:
             LOGGER.warning("No valid data to import as statistics")
             return
 
@@ -169,17 +170,18 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         statistics = []
         running_sum = 0.0
 
-        # Sort by date to calculate cumulative sum
-        for day in sorted(daily_data.keys()):
-            daily_total = daily_data[day]
-            running_sum += daily_total
+        # Sort by datetime to calculate cumulative sum
+        for hour_start in sorted(hourly_data.keys()):
+            hourly_total = hourly_data[hour_start]
+            running_sum += hourly_total
 
-            # Start of day in UTC
-            start_dt = datetime.combine(day, datetime.min.time()).replace(tzinfo=timezone.utc)  # noqa: UP017
+            # Ensure timezone is set
+            if hour_start.tzinfo is None:
+                hour_start = hour_start.replace(tzinfo=timezone.utc)  # noqa: UP017
 
             statistics.append(
                 {
-                    "start": start_dt,
+                    "start": hour_start,
                     "sum": running_sum,
                     "state": running_sum,
                 }
@@ -189,6 +191,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         metadata = {
             "has_mean": False,
             "has_sum": True,
+            "mean_type": "none",
             "name": f"EGD {self.ean} Consumption",
             "source": "egd_smart_meter",
             "statistic_id": f"egd_smart_meter:{self.ean}_consumption",
