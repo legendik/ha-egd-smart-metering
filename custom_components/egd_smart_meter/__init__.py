@@ -191,7 +191,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "has_sum": True,
             "name": f"EGD {self.ean} Consumption",
             "source": "recorder",
-            "statistic_id": f"sensor.egd_{self.ean.replace('-', '_')}_consumption",
+            "statistic_id": f"egd_smart_meter:{self.ean}_consumption",
             "unit_of_measurement": "kWh",
         }
 
