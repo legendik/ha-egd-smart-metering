@@ -3,9 +3,9 @@
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.components.recorder.statistics import async_add_external_statistics
 
 from .api import EGDApiError, EGDClient
 from .const import (
