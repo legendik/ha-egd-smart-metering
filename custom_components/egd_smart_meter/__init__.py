@@ -1,10 +1,11 @@
 """EGD Smart Meter integration."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.components.recorder.statistics import async_add_external_statistics
 
 from .api import EGDApiError, EGDClient
 from .const import (
@@ -140,8 +141,70 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
 
+            # Import historical statistics for Energy Dashboard
+            await self._import_historical_statistics(data)
+
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
+
+    async def _import_historical_statistics(self, data: list) -> None:
+        """Import historical consumption data as statistics for Energy Dashboard.
+
+        This allows viewing daily/hourly consumption in the Energy Dashboard.
+        """
+        if not data:
+            return
+
+        # Group data by day
+        daily_data: dict[date, float] = {}
+        for item in data:
+            if item.value is not None and item.status == "IU012":
+                day = item.timestamp.date()
+                daily_data[day] = daily_data.get(day, 0.0) + item.value
+
+        if not daily_data:
+            LOGGER.warning("No valid data to import as statistics")
+            return
+
+        # Prepare statistics data
+        statistics = []
+        running_sum = 0.0
+
+        # Sort by date to calculate cumulative sum
+        for day in sorted(daily_data.keys()):
+            daily_total = daily_data[day]
+            running_sum += daily_total
+
+            # Start of day in UTC
+            start_dt = datetime.combine(day, datetime.min.time())
+
+            statistics.append(
+                {
+                    "start": start_dt,
+                    "sum": running_sum,
+                    "state": running_sum,
+                }
+            )
+
+        # Metadata for the statistics
+        metadata = {
+            "has_mean": False,
+            "has_sum": True,
+            "name": f"EGD {self.ean} Consumption",
+            "source": "recorder",
+            "statistic_id": f"sensor.egd_{self.ean.replace('-', '_')}_consumption",
+            "unit_of_measurement": "kWh",
+        }
+
+        # Import statistics
+        try:
+            async_add_external_statistics(self.hass, metadata, statistics)
+            LOGGER.info(
+                "Imported %d days of historical statistics for Energy Dashboard",
+                len(statistics),
+            )
+        except Exception as err:
+            LOGGER.error("Failed to import historical statistics: %s", err)
 
     async def close(self) -> None:
         await self.api.close()
