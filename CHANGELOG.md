@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.3.2...egd_smart_meter-v0.3.3) (2026-03-01)
+
+
+### Bug Fixes
+
+* use timezone ([3cd7c59](https://github.com/legendik/ha-egd-smart-metering/commit/3cd7c5938065b1c6a270468c4fa12376e29b6ee0))
+
 ## [0.3.2](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.3.1...egd_smart_meter-v0.3.2) (2026-03-01)
 
 
