@@ -1,6 +1,6 @@
 """EGD Smart Meter integration."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -175,7 +175,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             running_sum += daily_total
 
             # Start of day in UTC
-            start_dt = datetime.combine(day, datetime.min.time())
+            start_dt = datetime.combine(day, datetime.min.time()).replace(tzinfo=timezone.utc)  # noqa: UP017
 
             statistics.append(
                 {
