@@ -105,16 +105,30 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 end_date=safe_date,
             )
 
+            LOGGER.info("Received %d total records from API", len(data))
+
+            # Debug: count by status
+            status_counts = {}
+            for item in data:
+                status = item.status
+                status_counts[status] = status_counts.get(status, 0) + 1
+
+            if status_counts:
+                LOGGER.info("Status distribution: %s", status_counts)
+
+            valid_count = 0
             for item in data:
                 if item.value is not None and item.status == "IU012":
                     self._total_consumption += item.value
+                    valid_count += 1
 
             if data:
                 self._last_date = safe_date
 
             LOGGER.info(
-                "Fetched %d records, total consumption: %.2f kWh",
+                "Fetched %d records, %d valid (IU012), total consumption: %.2f kWh",
                 len(data),
+                valid_count,
                 self._total_consumption,
             )
 

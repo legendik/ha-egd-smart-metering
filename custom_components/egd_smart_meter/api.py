@@ -142,12 +142,19 @@ class EGDClient:
 
         # API returns a list with one object containing the data
         if not isinstance(data, list):
-            LOGGER.warning("Unexpected data format from API: %s", type(data))
+            LOGGER.warning(
+                "Unexpected data format from API: %s, content: %s", type(data), str(data)[:200]
+            )
+            return results
+
+        if not data:
+            LOGGER.debug("API returned empty list for %s from %s to %s", ean, start_date, end_date)
             return results
 
         total_records_in_response = 0
         for item in data:
             if not isinstance(item, dict):
+                LOGGER.debug("Skipping non-dict item in API response: %s", type(item))
                 continue
 
             # Get total count if available (for pagination)
@@ -155,8 +162,19 @@ class EGDClient:
             if total_records:
                 total_records_in_response = total_records
 
+            units = item.get("units", "UNKNOWN")
+
             # Extract actual data points from nested "data" field
             data_points = item.get("data", [])
+            LOGGER.debug(
+                "API response for %s: total=%s, units=%s, data_points=%d",
+                ean,
+                total_records,
+                units,
+                len(data_points),
+            )
+
+            valid_records = 0
             for record in data_points:
                 if not isinstance(record, dict):
                     continue
@@ -182,6 +200,14 @@ class EGDClient:
                         status=record.get("status", "IU012"),
                     )
                 )
+                valid_records += 1
+
+            LOGGER.debug(
+                "Processed %d valid records from %d data points for %s",
+                valid_records,
+                len(data_points),
+                ean,
+            )
 
         # Check if there are more pages to fetch
         if total_records_in_response > 0 and page_start + len(results) < total_records_in_response:
