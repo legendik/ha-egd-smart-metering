@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -10,6 +11,7 @@ from .api import EGDApiError, EGDClient
 from .const import (
     ATTR_CONSUMPTION,
     ATTR_PRODUCTION,
+    ATTR_STATISTICS_IMPORTED,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_EAN,
@@ -86,7 +88,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ATTR_PRODUCTION: self._total_production,
         }
 
-    async def fetch_initial_data(self) -> None:
+    async def fetch_initial_data(self, entry: ConfigEntry) -> None:
         # API requires data to be at least 1 day old
         safe_date = date.today() - timedelta(days=2)
 
@@ -140,8 +142,13 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
 
-            # Import historical statistics for Energy Dashboard
-            await self._import_historical_statistics(data)
+            # Import historical statistics only on first install
+            if not entry.data.get(ATTR_STATISTICS_IMPORTED, False):
+                await self._import_historical_statistics(data)
+                # Mark as imported
+                hass = self.hass
+                new_data = {**entry.data, ATTR_STATISTICS_IMPORTED: True}
+                hass.config_entries.async_update_entry(entry, data=new_data)
 
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
@@ -230,7 +237,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: Any) -> bool:
         start_date,
     )
 
-    await coordinator.fetch_initial_data()
+    await coordinator.fetch_initial_data(entry)
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator

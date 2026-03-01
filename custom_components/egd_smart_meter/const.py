@@ -4,6 +4,7 @@ DOMAIN = "egd_smart_meter"
 
 ATTR_CONSUMPTION = "consumption"
 ATTR_PRODUCTION = "production"
+ATTR_STATISTICS_IMPORTED = "statistics_imported"
 
 CONF_CLIENT_ID = "client_id"
 CONF_CLIENT_SECRET = "client_secret"
