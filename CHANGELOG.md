@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.6.1...egd_smart_meter-v0.7.0) (2026-03-01)
+
+
+### Features
+
+* drop historical data ([e82a716](https://github.com/legendik/ha-egd-smart-metering/commit/e82a7162c05d0e503dead29ebdd9e2d576f79589))
+
 ## [0.6.1](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.6.0...egd_smart_meter-v0.6.1) (2026-03-01)
 
 
