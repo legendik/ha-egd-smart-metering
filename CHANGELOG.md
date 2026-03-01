@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.4.0...egd_smart_meter-v0.4.1) (2026-03-01)
+
+
+### Bug Fixes
+
+* add unit_class ([a466024](https://github.com/legendik/ha-egd-smart-metering/commit/a466024dd9a8329bdc86273d4343bc7925ed6289))
+
 ## [0.4.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.3.3...egd_smart_meter-v0.4.0) (2026-03-01)
 
 
