@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.2.7...egd_smart_meter-v0.3.0) (2026-03-01)
+
+
+### Features
+
+* add historical statistics import for Energy Dashboard ([9cc3f35](https://github.com/legendik/ha-egd-smart-metering/commit/9cc3f35d491ff0a1f0335a06c0470819c31a90b0))
+
+
+### Bug Fixes
+
+* imports ([cfe50f2](https://github.com/legendik/ha-egd-smart-metering/commit/cfe50f293dcf39a0331c97b7ba3faec3940d7839))
+
 ## [0.2.7](https://github.com/legendik/ha-egd-smart-metering/compare/egd_smart_meter-v0.2.6...egd_smart_meter-v0.2.7) (2026-03-01)
 
 
