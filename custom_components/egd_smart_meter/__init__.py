@@ -11,7 +11,7 @@ from .api import EGDApiError, EGDClient
 from .const import (
     ATTR_CONSUMPTION,
     ATTR_PRODUCTION,
-    ATTR_STATISTICS_IMPORTED,
+    # ATTR_STATISTICS_IMPORTED,  # TODO: Re-enable when statistics import is fixed
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_EAN,
@@ -140,13 +140,14 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             LOGGER.info("Updated coordinator data: consumption=%.2f kWh", self._total_consumption)
 
-            # Import historical statistics only on first install
-            if not entry.data.get(ATTR_STATISTICS_IMPORTED, False):
-                await self._import_historical_statistics(data)
-                # Mark as imported
-                hass = self.hass
-                new_data = {**entry.data, ATTR_STATISTICS_IMPORTED: True}
-                hass.config_entries.async_update_entry(entry, data=new_data)
+            # Import historical statistics - temporarily disabled due to UNIQUE constraint issues
+            # TODO: Fix import logic or make it optional via service call
+            # if not entry.data.get(ATTR_STATISTICS_IMPORTED, False):
+            #     await self._import_historical_statistics(data)
+            #     # Mark as imported
+            #     hass = self.hass
+            #     new_data = {**entry.data, ATTR_STATISTICS_IMPORTED: True}
+            #     hass.config_entries.async_update_entry(entry, data=new_data)
 
         except EGDApiError as err:
             LOGGER.error("Failed to fetch initial data: %s", err)
@@ -154,39 +155,34 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _import_historical_statistics(self, data: list) -> None:
         """Import historical consumption data as statistics for Energy Dashboard.
 
-        This allows viewing hourly consumption in the Energy Dashboard.
+        This allows viewing 15-minute consumption in the Energy Dashboard.
         """
         if not data:
             return
 
-        # Group data by hour
-        hourly_data: dict[datetime, float] = {}
-        for item in data:
-            if item.value is not None and item.status == "IU012":
-                # Round timestamp to start of hour
-                hour_start = item.timestamp.replace(minute=0, second=0, microsecond=0)
-                hourly_data[hour_start] = hourly_data.get(hour_start, 0.0) + item.value
+        # Filter valid data (IU012 status and non-null values)
+        valid_data = [item for item in data if item.value is not None and item.status == "IU012"]
 
-        if not hourly_data:
+        if not valid_data:
             LOGGER.warning("No valid data to import as statistics")
             return
 
-        # Prepare statistics data
+        # Prepare statistics data - keep 15-minute intervals as-is
         statistics = []
         running_sum = 0.0
 
-        # Sort by datetime to calculate cumulative sum
-        for hour_start in sorted(hourly_data.keys()):
-            hourly_total = hourly_data[hour_start]
-            running_sum += hourly_total
+        # Sort by datetime
+        for item in sorted(valid_data, key=lambda x: x.timestamp):
+            running_sum += item.value
 
             # Ensure timezone is set
-            if hour_start.tzinfo is None:
-                hour_start = hour_start.replace(tzinfo=timezone.utc)  # noqa: UP017
+            timestamp = item.timestamp
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)  # noqa: UP017
 
             statistics.append(
                 {
-                    "start": hour_start,
+                    "start": timestamp,
                     "sum": running_sum,
                     "state": running_sum,
                 }
@@ -210,7 +206,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             async_add_external_statistics(self.hass, metadata, statistics)
             LOGGER.info(
-                "Imported %d days of historical statistics for Energy Dashboard",
+                "Imported %d quarter-hour records of historical statistics for Energy Dashboard",
                 len(statistics),
             )
         except Exception as err:
