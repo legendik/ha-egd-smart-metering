@@ -196,6 +196,7 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "source": "egd_smart_meter",
             "statistic_id": f"egd_smart_meter:{self.ean}_consumption",
             "unit_of_measurement": "kWh",
+            "unit_class": "energy",
         }
 
         # Import statistics
