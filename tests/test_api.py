@@ -144,15 +144,17 @@ class TestEGDClient:
                 raise EGDAuthError("Token expired")
             return mock_response
 
-        with patch.object(client, "_request", side_effect=mock_request):
+        with (
+            patch.object(client, "_request", side_effect=mock_request),
+            pytest.raises(EGDAuthError),
+        ):
             # This will fail because our mock raises EGDAuthError on first call
             # The actual implementation would retry with fresh token
-            with pytest.raises(EGDAuthError):
-                await client.get_consumption_data(
-                    ean="859182400100366666",
-                    start_date=date(2023, 3, 1),
-                    end_date=date(2023, 3, 1),
-                )
+            await client.get_consumption_data(
+                ean="859182400100366666",
+                start_date=date(2023, 3, 1),
+                end_date=date(2023, 3, 1),
+            )
 
     @pytest.mark.asyncio
     async def test_pagination_with_total_field(self, client):

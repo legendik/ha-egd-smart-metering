@@ -68,16 +68,11 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     item.value for item in data if item.value is not None and item.status == "IU012"
                 )
 
-                if self._last_date is None:
-                    self._total_consumption = daily_total
-                else:
-                    self._total_consumption += daily_total
-
+                self._total_consumption = daily_total  # Show daily consumption, not cumulative
                 self._last_date = safe_date
                 LOGGER.info(
-                    "Updated consumption: %.2f kWh (total: %.2f)",
+                    "Updated daily consumption: %.2f kWh",
                     daily_total,
-                    self._total_consumption,
                 )
 
             except EGDApiError as err:
@@ -119,10 +114,13 @@ class EGDCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 LOGGER.info("Status distribution: %s", status_counts)
 
             valid_count = 0
+            total_consumption = 0.0
             for item in data:
                 if item.value is not None and item.status == "IU012":
-                    self._total_consumption += item.value
+                    total_consumption += item.value
                     valid_count += 1
+
+            self._total_consumption = total_consumption
 
             if data:
                 self._last_date = safe_date
